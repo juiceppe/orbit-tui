@@ -1,0 +1,11 @@
+[package]
+name = "orbit-tui"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+orbit-core = { path = "../orbit-core"}
+tokio = { version = "1.49", features = ["full"] }
+anyhow = "1.0.100"
+ratatui = "0.30.0"
+crossterm = "0.29.0"
