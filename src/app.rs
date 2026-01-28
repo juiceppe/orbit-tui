@@ -1,8 +1,16 @@
 use crate::action::Action;
 use crate::ui::get_items_for_view;
 use crate::view::{NavigationStack, ViewType};
+use graphql_parser::schema::parse_schema;
 use orbit_core::{load_config, HiveClient, OrbitConfig};
 use ratatui::widgets::ListState;
+
+
+fn format_sdl(sdl: &str) -> String {
+    parse_schema::<String>(sdl)
+        .map(|ast| format!("{}", ast))
+        .unwrap_or_else(|_| sdl.to_string())
+}
 
 pub struct App {
     pub running: bool,
@@ -166,7 +174,7 @@ impl App {
             .map_err(|e| e.to_string())?;
 
         if let Some(ref latest) = version_data.latest_version {
-            self.supergraph_content = latest.supergraph.clone();
+            self.supergraph_content = latest.supergraph.as_ref().map(|s| format_sdl(s));
 
             self.subgraph_sdls = latest
                 .schemas
@@ -175,7 +183,7 @@ impl App {
                 .map(|e| {
                     (
                         e.node.service.clone(),
-                        e.node.source.clone().unwrap_or_default(),
+                        format_sdl(&e.node.source.clone().unwrap_or_default()),
                     )
                 })
                 .collect();

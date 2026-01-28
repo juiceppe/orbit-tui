@@ -9,16 +9,17 @@ use crate::app::App;
 use crate::view::ViewType;
 
 fn render_header(app: &mut App, frame: &mut Frame, area: ratatui::layout::Rect) {
+    let profile = app.selected_profile.as_deref().unwrap_or("Unknown profile");
     let title = match &app.navigation.current {
         ViewType::ProfileSelect => "Welcome to Orbit TUI - Profile Select",
-        ViewType::Projects => "Projects",
-        ViewType::Targets { project } => &format!("{} > Targets", project),
-        ViewType::Services { project, target } => &format!("{} > {} > Services", project, target),
+        ViewType::Projects => &format!("{} - Projects", profile),
+        ViewType::Targets { project } => &format!("{} > {} > Targets", profile, project),
+        ViewType::Services { project, target } => &format!("{} > {} > {} > Services", profile, project, target),
         ViewType::Schema {
             project,
             target,
             service,
-        } => &format!("{} > {} > {} > Schema", project, target, service),
+        } => &format!("{} > {} > {} > {} > Schema", profile, project, target, service),
     };
     let header = Paragraph::new(title)
         .style(Style::default().fg(Color::Cyan))
