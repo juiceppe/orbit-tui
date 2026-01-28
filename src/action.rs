@@ -7,4 +7,5 @@ pub enum Action {
     NavigateDown,
     Select,
     Back,
+    ToggleSupergraph,
 }

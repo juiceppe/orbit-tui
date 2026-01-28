@@ -16,6 +16,11 @@ pub struct App {
     pub projects: Vec<String>,
     pub targets: Vec<String>,
     pub services: Vec<String>,
+    pub schema_content: Option<String>,
+    pub supergraph_content: Option<String>,
+    pub subgraph_sdls: Vec<(String, String)>,
+    pub scroll_offset: u16,
+    pub showing_supergraph: bool,
 }
 
 impl App {
@@ -47,6 +52,11 @@ impl App {
             targets: Vec::new(),
             services: Vec::new(),
             selected_profile: None,
+            schema_content: None,
+            supergraph_content: None,
+            subgraph_sdls: Vec::new(),
+            scroll_offset: 0,
+            showing_supergraph: false,
         }
     }
 
@@ -86,13 +96,18 @@ impl App {
                     self.error = Some(e);
                     return;
                 }
-                self.navigation.push(ViewType::Services {
-                    project,
-                    target,
-                });
+                self.navigation.push(ViewType::Services { project, target });
                 self.reset_selection();
             }
             ViewType::Services { project, target } => {
+                self.scroll_offset = 0;
+                self.showing_supergraph = false;
+                let sdl = self
+                    .subgraph_sdls
+                    .iter()
+                    .find(|(name, _)| name == &selected_item)
+                    .cloned();
+                self.schema_content = sdl.map(|(_, sdl)| sdl);
                 self.navigation.push(ViewType::Schema {
                     project: project.clone(),
                     target: target.clone(),
@@ -150,16 +165,32 @@ impl App {
             .await
             .map_err(|e| e.to_string())?;
 
-        self.services = version_data
-            .latest_version
-            .map(|v| {
-                v.schemas
-                    .edges
-                    .iter()
-                    .map(|e| e.node.service.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
+        if let Some(ref latest) = version_data.latest_version {
+            self.supergraph_content = latest.supergraph.clone();
+
+            self.subgraph_sdls = latest
+                .schemas
+                .edges
+                .iter()
+                .map(|e| {
+                    (
+                        e.node.service.clone(),
+                        e.node.source.clone().unwrap_or_default(),
+                    )
+                })
+                .collect();
+
+            self.services = latest
+                .schemas
+                .edges
+                .iter()
+                .map(|e| e.node.service.clone())
+                .collect();
+        } else {
+            self.supergraph_content = None;
+            self.subgraph_sdls = Vec::new();
+            self.services = Vec::new();
+        }
 
         self.error = None;
         Ok(())
@@ -169,16 +200,24 @@ impl App {
         match action {
             Action::Quit => self.running = false,
             Action::NavigateUp => {
-                self.selected_index = self.selected_index.saturating_sub(1);
-                self.list_state.select(Some(self.selected_index));
+                if matches!(self.navigation.current, ViewType::Schema { .. }) {
+                    self.scroll_offset = self.scroll_offset.saturating_sub(1);
+                } else {
+                    self.selected_index = self.selected_index.saturating_sub(1);
+                    self.list_state.select(Some(self.selected_index));
+                }
             }
             Action::NavigateDown => {
-                let max = get_items_for_view(&self.navigation.current, self)
-                    .len()
-                    .saturating_sub(1);
-                if self.selected_index < max {
-                    self.selected_index = self.selected_index.saturating_add(1);
-                    self.list_state.select(Some(self.selected_index));
+                if matches!(self.navigation.current, ViewType::Schema { .. }) {
+                    self.scroll_offset = self.scroll_offset.saturating_add(1);
+                } else {
+                    let max = get_items_for_view(&self.navigation.current, self)
+                        .len()
+                        .saturating_sub(1);
+                    if self.selected_index < max {
+                        self.selected_index = self.selected_index.saturating_add(1);
+                        self.list_state.select(Some(self.selected_index));
+                    }
                 }
             }
             Action::Select => {
@@ -187,6 +226,21 @@ impl App {
             Action::Back => {
                 if self.navigation.pop() {
                     self.reset_selection();
+                }
+            }
+            Action::ToggleSupergraph => {
+                self.showing_supergraph = !self.showing_supergraph;
+                self.scroll_offset = 0;
+                if self.showing_supergraph {
+                    self.schema_content = self.supergraph_content.clone();
+                } else {
+                    if let ViewType::Schema { service, .. } = &self.navigation.current {
+                        self.schema_content = self
+                            .subgraph_sdls
+                            .iter()
+                            .find(|(name, _)| name == service)
+                            .map(|(_, sdl)| sdl.clone())
+                    }
                 }
             }
             _ => {}

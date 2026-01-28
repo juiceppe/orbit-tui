@@ -27,6 +27,10 @@ fn render_header(app: &mut App, frame: &mut Frame, area: ratatui::layout::Rect) 
 }
 
 fn render_content(app: &mut App, frame: &mut Frame, area: ratatui::layout::Rect) {
+    if matches!(app.navigation.current, ViewType::Schema { .. }) {
+        render_schema_viewer(app, frame, area);
+        return;
+    }
     let items: Vec<ListItem> = get_items_for_view(&app.navigation.current, app)
         .into_iter()
         .map(|s| ListItem::new(format!(" {}", s)))
@@ -41,13 +45,32 @@ fn render_content(app: &mut App, frame: &mut Frame, area: ratatui::layout::Rect)
 }
 
 fn render_footer(app: &App, frame: &mut Frame, area: ratatui::layout::Rect) {
-    let help = if app.navigation.can_go_back() {
+    let help = if matches!(app.navigation.current, ViewType::Schema { .. }) {
+        " j/k: scroll │ Tab: toggle supergraph │ Esc: back │ q: quit "
+    } else if app.navigation.can_go_back() {
         " j/k: navigate │ Enter: select │ Esc: back │ q: quit "
     } else {
         " j/k: navigate │ Enter: select │ q: quit "
     };
+
     let footer = Paragraph::new(help).style(Style::default().fg(Color::DarkGray));
     frame.render_widget(footer, area);
+}
+
+fn render_schema_viewer(app: &mut App, frame: &mut Frame, area: ratatui::layout::Rect) {
+    let title = if app.showing_supergraph {
+        "Supergraph Schema - Press TAB to Switch"
+    } else {
+        "Subgraph Schema - Press TAB to Switch"
+    };
+    let content = app
+        .schema_content
+        .as_deref()
+        .unwrap_or("No schema available");
+    let paragraph = Paragraph::new(content)
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .scroll((app.scroll_offset, 0));
+    frame.render_widget(paragraph, area);
 }
 
 pub fn get_items_for_view(view: &ViewType, app: &App) -> Vec<String> {
@@ -85,6 +108,7 @@ pub fn get_items_for_view(view: &ViewType, app: &App) -> Vec<String> {
         }
     }
 }
+
 pub fn render(app: &mut App, frame: &mut Frame) {
     let chunks = Layout::vertical([
         Constraint::Length(3),

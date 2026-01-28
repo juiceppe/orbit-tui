@@ -9,6 +9,7 @@ pub fn handle_key_event(key: KeyEvent) -> Option<Action> {
         KeyCode::Enter => Some(Action::Select),
         KeyCode::Esc => Some(Action::Back),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Some(Action::Quit),
+        KeyCode::Tab => Some(Action::ToggleSupergraph),
         _ => None,
     }
 }
