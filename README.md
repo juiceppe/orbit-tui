@@ -2,6 +2,10 @@
 
 **A k9s-inspired Terminal UI for GraphQL Federation**
 
+
+
+![Orbit TUI](./assets/demo_orbit_tui_001.gif)
+
 ---
 
 ## 🎯 Purpose
